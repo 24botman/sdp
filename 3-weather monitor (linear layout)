@@ -1,0 +1,236 @@
+activity_main.xml
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/txtTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="WEATHER MONITORING SYSTEM"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:gravity="center" />
+
+    <EditText
+        android:id="@+id/etId"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Report ID"
+        android:inputType="number" />
+
+    <EditText
+        android:id="@+id/etCity"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="City Name" />
+
+    <EditText
+        android:id="@+id/etTemperature"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Temperature"
+        android:inputType="numberDecimal|numberSigned" />
+
+    <EditText
+        android:id="@+id/etHumidity"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Humidity"
+        android:inputType="numberDecimal" />
+
+    <EditText
+        android:id="@+id/etCondition"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Weather Condition" />
+
+    <Button
+        android:id="@+id/btnSave"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="SAVE REPORT" />
+
+    <Button
+        android:id="@+id/btnUpdate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="UPDATE REPORT" />
+
+    <Button
+        android:id="@+id/btnView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="VIEW REPORTS" />
+
+    <TextView
+        android:id="@+id/txtResult"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Weather Reports"
+        android:textSize="16sp"
+        android:paddingTop="8dp" />
+
+</LinearLayout>
+
+WeatherDatabaseHelper.java
+
+package com.example.myapplication;
+
+import android.content.ContentValues;
+import android.content.Context;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
+
+public class WeatherDatabaseHelper extends SQLiteOpenHelper {
+
+    public WeatherDatabaseHelper(Context c) {
+        super(c, "Weather.db", null, 1);
+    }
+
+    @Override
+    public void onCreate(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE WeatherReports (" +
+                "Report_ID INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "City_Name TEXT," +
+                "Temperature TEXT," +
+                "Humidity TEXT," +
+                "Weather_Condition TEXT)");
+    }
+
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldV, int newV) {
+        db.execSQL("DROP TABLE IF EXISTS WeatherReports");
+        onCreate(db);
+    }
+
+    // Insert a report for testing
+    public long insert(String[] data) {
+        ContentValues v = new ContentValues();
+        v.put("City_Name", data[0]);
+        v.put("Temperature", data[1]);
+        v.put("Humidity", data[2]);
+        v.put("Weather_Condition", data[3]);
+
+        return getWritableDatabase().insert(
+                "WeatherReports", null, v);
+    }
+
+    // Update existing report
+    public int update(int id, String[] data) {
+        ContentValues v = new ContentValues();
+        v.put("City_Name", data[0]);
+        v.put("Temperature", data[1]);
+        v.put("Humidity", data[2]);
+        v.put("Weather_Condition", data[3]);
+
+        return getWritableDatabase().update(
+                "WeatherReports",
+                v,
+                "Report_ID=?",
+                new String[]{String.valueOf(id)});
+    }
+
+    // Read all reports
+    public Cursor getAll() {
+        return getReadableDatabase().rawQuery(
+                "SELECT * FROM WeatherReports", null);
+    }
+}
+
+MainActivity.java
+
+package com.example.myapplication;
+
+import android.os.Bundle;
+import android.database.Cursor;
+import android.widget.*;
+import androidx.appcompat.app.AppCompatActivity;
+
+public class MainActivity extends AppCompatActivity {
+
+    EditText id, city, temperature, humidity, condition;
+    WeatherDatabaseHelper db;
+    TextView result;
+
+    @Override
+    protected void onCreate(Bundle b) {
+        super.onCreate(b);
+        setContentView(R.layout.activity_main);
+
+        id = findViewById(R.id.etId);
+        city = findViewById(R.id.etCity);
+        temperature = findViewById(R.id.etTemperature);
+        humidity = findViewById(R.id.etHumidity);
+        condition = findViewById(R.id.etCondition);
+        result = findViewById(R.id.txtResult);
+
+        db = new WeatherDatabaseHelper(this);
+
+        // SAVE REPORT
+        findViewById(R.id.btnSave).setOnClickListener(v -> {
+            long row = db.insert(new String[]{
+                    city.getText().toString(),
+                    temperature.getText().toString(),
+                    humidity.getText().toString(),
+                    condition.getText().toString()
+            });
+
+            Toast.makeText(this,
+                    row != -1 ? "Report Saved" : "Save Failed",
+                    Toast.LENGTH_SHORT).show();
+        });
+
+        // UPDATE REPORT
+        findViewById(R.id.btnUpdate).setOnClickListener(v -> {
+            String reportId = id.getText().toString().trim();
+
+            if (reportId.isEmpty()) {
+                id.setError("Enter Report ID");
+                return;
+            }
+
+            int rows = db.update(
+                    Integer.parseInt(reportId),
+                    new String[]{
+                            city.getText().toString(),
+                            temperature.getText().toString(),
+                            humidity.getText().toString(),
+                            condition.getText().toString()
+                    });
+
+            Toast.makeText(this,
+                    rows > 0 ? "Report Updated" : "Report ID Not Found",
+                    Toast.LENGTH_SHORT).show();
+        });
+
+        // VIEW REPORTS
+        findViewById(R.id.btnView).setOnClickListener(v -> {
+            Cursor c = db.getAll();
+            StringBuilder s = new StringBuilder();
+
+            while (c.moveToNext()) {
+                for (int i = 0; i < c.getColumnCount(); i++) {
+                    s.append(c.getColumnName(i))
+                     .append(": ")
+                     .append(c.getString(i))
+                     .append("\n");
+                }
+                s.append("\n");
+            }
+
+            c.close();
+
+            if (s.length() == 0) {
+                result.setText("No weather reports found");
+            } else {
+                result.setText(s.toString());
+            }
+        });
+    }
+}
